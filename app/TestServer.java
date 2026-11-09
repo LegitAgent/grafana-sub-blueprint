@@ -10,7 +10,8 @@ import java.nio.charset.StandardCharsets;
 public class TestServer {
     public static void main(String[] args) {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0); // open port
+            // open port, 0.0.0.0 for wildcard connections
+            HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", 8000), 0);
             server.createContext("/", new MyHandler()); // root
             // start server
             server.setExecutor(null);
