@@ -3,7 +3,8 @@ global:
   scrape_interval: 15s
 
 # target scrapes
-scrape_configs:
+# default metric request endpoint are at /metrics, if not, do metrics_path: /path/to/metrics
+scrape_configs: 
   # monitor own health, polls localhost:9090/metrics
   - job_name: prometheus
     static_configs:
