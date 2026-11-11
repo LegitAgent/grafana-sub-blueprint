@@ -5,21 +5,36 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+
 # send telemetry data to observability backends and destinations
 exporters:
   debug:
     verbosity: detailed
+
   prometheus:
+  # wildcard for listens to all network interfaces in otel-collector/metrics
     endpoint: 0.0.0.0:8889
+
+  # uses OTLP over gRPC
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true # for testing purposes
+
+  # use HTTP API
+  elasticsearch:
+    endpoint: http://elasticsearch:9200
+
 
 service:
   pipelines:
     traces:
+    # from collector (receiver) to Jaeger (exporter) example
       receivers: [otlp]
-      exporters: [debug]
+      exporters: [debug, otlp/jaeger]
     metrics:
       receivers: [otlp]
       exporters: [debug, prometheus]
     logs:
       receivers: [otlp]
-      exporters: [debug]
+      exporters: [debug, elasticsearch]
