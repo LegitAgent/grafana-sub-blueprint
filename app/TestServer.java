@@ -55,8 +55,9 @@ public class TestServer {
         }
 
         public void sendResponse(HttpExchange exchange, int statusCode, String response) throws IOException{
-            byte[] utf8Response = response.getBytes(StandardCharsets.UTF_8); // standardized char size
-
+            byte[] utf8Response = response.getBytes(StandardCharsets.UTF_8); // standardized encoding system
+    
+            exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
             exchange.sendResponseHeaders(statusCode, utf8Response.length);
             try(OutputStream os = exchange.getResponseBody()) {
                 os.write(utf8Response);

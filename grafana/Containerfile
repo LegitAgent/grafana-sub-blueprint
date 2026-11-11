@@ -1,0 +1,10 @@
+FROM grafana/grafana:13.3.0
+
+# perms err if not
+USER root
+COPY grafana/provisioning/ /etc/grafana/provisioning
+COPY dashboards/ /etc/grafana/dashboards/
+
+# owner can read and write, others only read
+RUN chmod -R u=rwX,go=rX /etc/grafana/provisioning /etc/grafana/dashboards
+USER 472:0

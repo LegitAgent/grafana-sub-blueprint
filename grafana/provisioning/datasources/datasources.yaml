@@ -1,0 +1,25 @@
+apiVersion: 1
+
+datasources:
+  - name: prometheus
+    uid: cg3spvirq72tcb
+    type: prometheus
+    access: proxy
+    url: http://grafana-prometheus-test:9090 # container name port
+  
+  - name: jaeger
+    uid: dg3vnda5rti4gc
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+
+  - name: elasticsearch
+    uid: fg3w309yhcohsa
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    jsonData:
+      index: logs-generic.otel-default
+      timeField: '@timestamp'
+      logMessageField: body.text
+      logLevelField: severity_text
