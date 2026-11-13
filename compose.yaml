@@ -1,0 +1,39 @@
+services:
+  grafana:
+    image: localhost/grafana-setup-lab:1
+    build:
+      context: .
+      dockerfile: grafana/Containerfile
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - observability
+    ports:
+      - 3000:3000
+
+  otel-collector:
+    image: localhost/otel-collector-setup-lab:1
+    build:
+      context: .
+      dockerfile: otel/collector.
+
+  prometheus:
+    image: localhost/prometheus-setup-lab:1
+    build:
+      context: .
+      dockerfile: prometheus/Containerfile
+    volumes:
+      - prometheus-data:/prometheus # volume name : mounted at x
+    networks:
+      - observability
+    ports: 
+      - 9090:9090
+
+networks:
+  observability:
+    # external: true # only for existing
+
+volumes:
+  prometheus-data:
+  grafana-data:
+    # external: true # same thing
