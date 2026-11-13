@@ -44,12 +44,26 @@ services:
     ports:
       - 16686:16686
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.6
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - observability
+    ports:
+      - 9200:9200
+
 networks:
   observability:
     # external: true # only for existing
 
+# persistent storage
 volumes:
   prometheus-data:
   grafana-data:
     # external: true # same thing
   jaeger-data:
+  elasticsearch-data:
