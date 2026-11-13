@@ -1,4 +1,14 @@
 services:
+  java-app:
+    image: localhost/java-app-lab:1
+    build:
+      context: .
+      dockerfile: Containerfile
+    networks:
+      - observability
+    ports:
+      - 8000:8000
+
   grafana:
     image: localhost/grafana-setup-lab:1
     build:
