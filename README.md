@@ -1,148 +1,80 @@
 # Local observability lab
 
-A learning project for running application observability locally with Podman. The current lab collects metrics from a small Java HTTP server and displays them with Grafana. Jaeger now receives traces; Elasticsearch is planned for logs. Deployment automation comes later.
+Java 21 + OpenTelemetry on Podman Desktop/Ubuntu WSL. **Compose runs the full stack.** Kind currently runs the Java app and Collector with debug output; Helm, Argo CD, and Kubernetes data stores are next.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Java app + OpenTelemetry Java agent] -->|OTLP HTTP :4318| C[OpenTelemetry Collector]
-    C -->|metrics exposed at :8889/metrics| P[Prometheus scrapes and stores metrics]
-    P -->|queries| G[Grafana dashboards]
-    C -->|logs: debug output for now| D[Collector logs]
-    C -.->|logs: planned| E[Elasticsearch]
-    E -.->|log queries: planned| G
-    C -->|traces via OTLP gRPC :4317| J[Jaeger]
-    J -.->|trace queries after version pin| G
+    subgraph telemetry["Full Compose stack; Kubernetes migration in progress"]
+        App["Java app + OTel agent"] -->|"OTLP/HTTP :4318"| Collector["OTel Collector"]
+        Prometheus["Prometheus"] -->|"scrapes :8889/metrics"| Collector
+        Collector -->|"logs HTTP :9200"| Elasticsearch["Elasticsearch"]
+        Collector -->|"traces OTLP/gRPC :4317"| Jaeger["Jaeger"]
+        Grafana["Grafana"] -->|"queries :9090"| Prometheus
+        Grafana -->|"queries :9200"| Elasticsearch
+        Grafana -->|"queries :16686"| Jaeger
+    end
+    subgraph deployment["Planned GitOps deployment"]
+        Git["Git repo: Helm chart + values"] -.-> Argo["Argo CD: renders Helm chart and syncs"]
+        Argo -.-> Kubernetes["Kubernetes: runs the full stack using Deployments, Services, ConfigMaps and storage"]
+    end
 ```
 
-The arrows into Grafana represent **queries**: Grafana reads metrics from Prometheus and, later, logs from Elasticsearch and traces from Jaeger. Grafana does not store these signals. Helm, Argo CD, and Kubernetes belong to a separate future **deployment flow**; they do not receive telemetry from Grafana.
+Solid arrows show telemetry delivery, scraping, and queries; dashed arrows show the planned deployment flow. Kubernetes currently runs only the Java app and debug Collector. Compose and Kubernetes service names resolve within their own networks.
 
-| Component | Job in this lab |
+## Start
+
+Requires Podman Desktop, Ubuntu's `podman` and `/usr/bin/podman-compose`, and Windows `podman.exe` accessible from WSL.
+
+```bash
+bash setup.sh
+```
+
+Select/create a Podman machine; the script discovers its socket, builds images, and starts Compose. Its exported connection settings last only for that script.
+
+**Option A — Podman Desktop:** Inspect Compose resources under **Containers**. For Kind, use a rootful machine and context `kind-observability-lab`; inspect **Kubernetes → Pods**.
+
+**Option B — WSL CLI:** Export `CONTAINER_HOST` for the selected engine before separate Podman commands. Windows `kubectl.exe` uses Desktop's kubeconfig:
+
+```bash
+kubectl.exe config use-context kind-observability-lab
+kubectl.exe apply -f "$(wslpath -w k8s)"
+```
+
+First load `localhost/java-app-lab:1` and `localhost/otel-collector-setup-lab:1` into Kind via **Images → ⋮ → Push image to Kind cluster**, or `kind.exe load docker-image <image> --name observability-lab` using the same engine. Their pull policy is `Never`.
+
+## Ports
+
+TCP mappings below describe the lab; **internal** means no host publication.
+
+| Host → destination | Listener / purpose |
 | --- | --- |
-| Java app | Serves HTTP requests and writes application log records. |
-| OpenTelemetry Java agent | Instruments the app without adding OpenTelemetry calls to the Java source. It captures HTTP metrics and traces, and bridges supported Java logging frameworks. |
-| OpenTelemetry Collector | Receives OTLP data and routes each signal through a configured pipeline. Its `debug` exporter prints received telemetry for verification. |
-| Prometheus | Scrapes numeric time series and stores them for querying. It is not a log database. |
-| Elasticsearch (planned) | Will store application logs. |
-| Jaeger | Receives traces from the Collector and serves them for inspection. The all-in-one lab container stores traces in memory. |
-| Grafana | Queries data sources and shows metrics, logs, and traces. |
+| `8000 → 8000` | Compose Java HTTP server: `http://localhost:8000/hello-world`. |
+| `3000 → 3000` | Grafana HTTP dashboards/API. |
+| `9090 → 9090` | Prometheus HTTP UI, query API, and self-metrics. |
+| `16686 → 16686` | Jaeger HTTP UI/query API; Grafana uses `http://jaeger:16686`. |
+| `9200 → 9200` | Elasticsearch HTTP API: Collector writes logs; Grafana queries them. Local lab authentication is disabled. |
+| Internal `otel-collector:4318` | OTLP/HTTP receiver for Java metrics, logs, and traces; Kubernetes Service forwards to Pod port `4318`. |
+| Internal `otel-collector:8889/metrics` | Compose Collector exposes metrics for Prometheus to scrape every **15s**. Disabled in the Kubernetes pipelines for now. |
+| Internal `jaeger:4317` | OTLP/gRPC trace receiver used by the Compose Collector. |
+| Internal Jaeger `4318` / `8888` | Alternative OTLP/HTTP receiver / Jaeger's own operational metrics. |
+| `9091 → 80`, `9443 → 443` | Kind node HTTP/HTTPS ingress mappings; no ingress controller is currently deployed. |
+| Loopback `62782 → 6443`* | Kubernetes HTTPS API for `kubectl`. |
+| Local `50000 → Pod 8000`* | Desktop app port-forward: `http://localhost:50000/hello-world`. |
+| Optional local `8004 → Pod 8000` | CLI alternative: `kubectl.exe port-forward svc/hello-world-app 8004:8000`. Keep it running. |
 
-## What is running now
+*API/automatic forwarding ports can change; check `kubectl.exe cluster-info` and Desktop's **Port Forwarding** page. Image-declared ports (for example `55679`, Elasticsearch `9300`, and legacy Jaeger ports) are not host mappings or proof of enabled listeners.*
 
-- The Java app sends telemetry to the Collector on the Podman `observability` network.
-- The Collector's metrics pipeline exposes metrics on port `8889`; Prometheus scrapes that endpoint every 15 seconds.
-- Prometheus and its Collector target are reachable in the Prometheus UI at <http://localhost:9090/targets>. Both targets should show **UP**.
-- Grafana is at <http://localhost:3000>. Its Prometheus data source can graph the app's HTTP request count.
-- The Collector sends traces to Jaeger and also prints them with `debug`. Jaeger is available at <http://localhost:16686>; pin it to version `2.20.0` before configuring the built-in Grafana Jaeger data source.
-- The Collector still prints logs with `debug`. `app/TestServer.java` emits `java.util.logging` request messages, but Elasticsearch has not been added yet.
+`0.0.0.0` binds all container/Pod interfaces. `containerPort` documents a port; application configuration starts its listener. A Service selects Pods by labels; port-forwarding tunnels through the Kubernetes API to a selected Pod.
 
-The current configuration is in [`otel/collector.yaml`](otel/collector.yaml) and [`prometheus/prometheus.yaml`](prometheus/prometheus.yaml). The app source is [`app/TestServer.java`](app/TestServer.java), and its image definition is [`Containerfile`](Containerfile). The dashboard export is in [`dashboards/local-observability-lab.json`](dashboards/local-observability-lab.json).
+## Configuration and persistence
 
-## Addresses and timing
-
-| Address | Who uses it | Purpose |
-| --- | --- | --- |
-| `http://localhost:8003/` | Your browser | The app container published to the Windows host. |
-| `http://otel-collector:4318` | Java agent inside the Podman network | Collector OTLP/HTTP receiver. The agent adds `/v1/metrics`, `/v1/traces`, or `/v1/logs`. |
-| `http://otel-collector:8889/metrics` | Prometheus inside the Podman network | Collector's Prometheus exporter. |
-| `http://localhost:9090` | Your browser | Prometheus UI/API. |
-| `http://localhost:3000` | Your browser | Grafana UI. |
-| `http://jaeger:16686` | Grafana inside the Podman network | Jaeger query API; use this as the Grafana data source URL. |
-| `http://localhost:16686` | Your browser | Jaeger UI. |
-
-The `otel-collector` hostname resolves inside the `observability` Podman network. It is not a Windows browser hostname. Port `8889` has not been published to the host; seeing its target **UP** in Prometheus is the useful check.
-
-Three intervals are independent:
-
-1. The Java agent's default periodic metric export interval is **60 seconds**. It can be changed with `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds).
-2. `scrape_interval: 15s` in `prometheus/prometheus.yaml` makes Prometheus poll its targets every **15 seconds**. The default path is `/metrics`; use `metrics_path` on a scrape job if the target serves another path.
-3. Grafana refreshes a dashboard when requested or when a dashboard refresh interval is set. Refreshing Grafana more often does not make the Java agent export sooner.
-
-## OpenTelemetry settings
-
-The app image starts Java with `-javaagent:otel/opentelemetry-javaagent.jar`. That JAR contains the agent and its automatic instrumentation. The `Containerfile` sets the metrics and traces exporters to `console` for early testing; the app container connected to the Collector overrides those settings at runtime:
-
-```text
-OTEL_METRICS_EXPORTER=otlp
-OTEL_TRACES_EXPORTER=otlp
-OTEL_LOGS_EXPORTER=otlp
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-```
-
-`otlp` chooses the telemetry protocol/exporter. `OTEL_EXPORTER_OTLP_ENDPOINT` chooses its destination. With the Java agent's OTLP/HTTP default, the signal-specific paths are appended automatically. Setting a logs exporter only determines where **captured** logs go; it does not turn `System.out.println` text into OpenTelemetry log records.
-
-The Java agent supports `java.util.logging` (JUL) and enables its logging bridge by default. Use a `java.util.logging.Logger` in the app to emit log records. The bridge captures those records, and the configured OTLP exporter sends them to the Collector. `OTEL_JAVAAGENT_LOGGING` controls the agent's own diagnostics; it is different from application logging.
-
-## Check the metrics path
-
-1. Visit <http://localhost:8003/> several times.
-2. Check <http://localhost:9090/targets>: the `otel-collector` target should be **UP**. The query `up{job="otel-collector"}` should return `1`.
-3. In Grafana **Explore**, select the Prometheus data source and query:
-
-   ```promql
-   http_server_request_duration_seconds_count{job="otel-collector"}
-   ```
-
-   This is a cumulative request count for the current app process. It changes when the agent exports another metric batch and Prometheus scrapes it.
-
-## Podman Desktop and WSL CLI
-
-The repo is edited in the Ubuntu WSL distribution. Podman Desktop runs its containers in a **different** WSL-backed Podman machine named `grafana-test`. Plain `podman` in Ubuntu uses Ubuntu's local Podman engine, which has a different container store.
-
-**Option A — Podman Desktop:** Use the `grafana-test` machine to inspect containers, read logs, and restart them. The Collector image has no `/bin/sh`, so use its **Logs** tab rather than its Terminal tab.
-
-**Option B — WSL CLI:** Define this Bash function once per terminal session to send commands to the same machine that Desktop shows:
-
-```bash
-pd() { podman --remote --url unix:///mnt/wsl/podman-sockets/podman-grafana-test/podman-root.sock "$@"; }
-pd ps
-```
-
-When a config file changes in the WSL repo, copy it into the appropriate container and restart that container. The source file is `.yaml` for Prometheus, while the destination inside its image is `.yml`:
-
-```bash
-pd cp otel/collector.yaml otel-collector:/etc/otelcol/config.yaml
-pd restart otel-collector
-
-pd cp prometheus/prometheus.yaml grafana-prometheus-test:/etc/prometheus/prometheus.yml
-pd exec grafana-prometheus-test promtool check config /etc/prometheus/prometheus.yml
-pd restart grafana-prometheus-test
-```
-
-Use `pd logs --tail 30 otel-collector` to inspect Collector output. Copying files into running containers is fine for this lab, but it is not a durable deployment method: recreating a container discards changes in its writable layer. A later Compose/Quadlet or Kubernetes setup should mount or bake versioned configuration from the repo.
-
-## Jaeger and Grafana compatibility: pin Jaeger 2.20.0
-
-**Use `cr.jaegertracing.io/jaegertracing/jaeger:2.20.0` with this lab's built-in Grafana Jaeger data source.** Jaeger 2.21 and later removed `/api/services` and the older trace search API. Grafana 13.3.0's Jaeger data source still calls those endpoints: **Save & test returns `request failed: 404 Not Found`**, and service search fails. The Grafana plugin's [compatibility issue](https://github.com/grafana/grafana-jaeger-datasource/issues/87) is still open; see [Jaeger's API change](https://github.com/jaegertracing/jaeger/pull/9260). Upgrading the Grafana server alone does not resolve this mismatch.
-
-When switching from Jaeger 2.23.0, replace only the `jaeger` container. Keep the container name `jaeger` and the `observability` network, so the Collector's `jaeger:4317` destination continues to work. Publish `16686:16686` for the UI. The all-in-one container stores traces in memory, so replacing it clears existing traces; visit <http://localhost:8003/hello-world> afterward to generate new ones. In Grafana, use `http://jaeger:16686` as the Jaeger data source URL and click **Save & test**.
-
-**Option A — Podman Desktop:** Stop and delete the `jaeger` container, pull the pinned image above, and create a new container named `jaeger` on the `observability` network. Map local `16686` to container `16686`. If Desktop fills fields for other exposed ports, give each a unique local port.
-
-**Option B — WSL CLI:** With the `pd` function above:
-
-```bash
-pd stop jaeger
-pd rm jaeger
-pd run -d --name jaeger --network observability -p 16686:16686 \
-  cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
-```
-
-## Next stages
-
-1. Pin Jaeger to `2.20.0`, add `http://jaeger:16686` as a Grafana Jaeger data source, and confirm a fresh app trace appears in Grafana Explore.
-2. Add Elasticsearch as the log store and route the Collector's logs pipeline to it. The Elasticsearch exporter is in the **contrib** Collector distribution, so this requires changing from the current core Collector image or choosing another compatible ingest path. Add Elasticsearch as a Grafana data source.
-3. Make local startup reproducible, then learn Helm, Kubernetes, and Argo CD as a separate deployment layer.
+- Kubernetes mounts ConfigMap `otel-collector-configmap` as `/etc/otelcol-contrib/collector.yaml`. This avoids image rebuilds for settings, distributes config across nodes, and lets Pods share it. Keep definitions in Git; apply changes and restart the Collector to reload them.
+- Compose configuration is baked into images; rebuild/recreate after edits. Grafana loads fixed data source UIDs and `dashboards/*.json`; export UI edits back to Git. Trace panels search `hello-world-app`, avoiding stale fixed IDs.
+- Named volumes persist Grafana, Prometheus, Jaeger Badger traces, and Elasticsearch logs. `compose down` preserves them; `down -v` deletes them. Agent exports, Prometheus scraping, and dashboard refresh have separate intervals.
+- **Compatibility:** Jaeger is pinned to **2.20.0** with Grafana **13.3.0** for this lab's legacy query API compatibility ([issue](https://github.com/grafana/grafana-jaeger-datasource/issues/87)).
 
 ## References
 
-- [OpenTelemetry Java agent setup](https://opentelemetry.io/docs/zero-code/java/agent/getting-started/) and [JUL logging bridge](https://explorer.opentelemetry.io/java-agent/instrumentation/java-util-logging)
-- [Java 21 `Logger` API](https://docs.oracle.com/en/java/javase/21/docs/api/java.logging/java/util/logging/Logger.html)
-- [OpenTelemetry Collector configuration](https://opentelemetry.io/docs/collector/configuration/) and [Prometheus exporter](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/exporter/prometheusexporter/README.md)
-- [OpenTelemetry OTLP exporter settings](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/) and [metric export interval](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/)
-- [Prometheus overview](https://prometheus.io/docs/introduction/overview/) and [scrape configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)
-- [Grafana data sources](https://grafana.com/docs/grafana/latest/datasources/) and [dashboard refresh](https://grafana.com/docs/grafana/latest/visualizations/dashboards/use-dashboards/)
-- [OpenTelemetry Collector Elasticsearch exporter](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/exporter/elasticsearchexporter/README.md) and [Elasticsearch data source in Grafana](https://grafana.com/docs/grafana/latest/datasources/elasticsearch/configure/)
-- [Jaeger deployment and OTLP receiver](https://www.jaegertracing.io/docs/2.23/getting-started/), [Jaeger data source in Grafana](https://grafana.com/docs/grafana/latest/datasources/jaeger/configure/), and [the Grafana Jaeger compatibility issue](https://github.com/grafana/grafana-jaeger-datasource/issues/87)
-- [Podman Desktop: access a Podman machine from another WSL distribution](https://podman-desktop.io/docs/podman/accessing-podman-from-another-wsl-instance)
+[Java agent](https://opentelemetry.io/docs/zero-code/java/agent/getting-started/) · [Collector](https://opentelemetry.io/docs/collector/configuration/) · [Prometheus](https://prometheus.io/docs/prometheus/latest/configuration/configuration/) · [Grafana provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/) · [ConfigMaps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) · [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) · [Podman/WSL](https://podman-desktop.io/docs/podman/accessing-podman-from-another-wsl-instance) · [Helm](https://helm.sh/docs/topics/charts/) · [Argo CD](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)
