@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1 # how many instances
+  selector:
+    matchLabels: 
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec: # pod spec
+      containers:
+      - name: otel-collector
+        image: localhost/otel-collector-setup-lab:1
+        imagePullPolicy: Never
+        args: ["--config=/etc/otelcol-contrib/collector.yaml"]
+        volumeMounts:
+        - name: otel-collector-config
+          mountPath: /etc/otelcol-contrib
+          readOnly: true
+        # containerPort is just a label, 0.0.0.0:4318 actually opens the port in your app, 
+        # and the Service gives other Pods a stable address to reach it.
+        ports:
+        - containerPort: 4318
+      volumes:
+      - name: otel-collector-config
+        configMap:
+          name: otel-collector-configmap
+    
