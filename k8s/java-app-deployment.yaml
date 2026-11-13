@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world-app
+  labels:
+    app: java-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels: 
+      app: java-app
+  template:
+    metadata:
+      labels:
+        app: java-app
+    spec:
+      containers:
+      - name: hello-world-app
+        image: localhost/java-app-lab:1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+    
