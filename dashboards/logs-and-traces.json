@@ -4,18 +4,24 @@
   "metadata": {
     "name": "addltbg",
     "namespace": "default",
-    "uid": "057d0d37-e830-4c4f-9ddb-45daf5e26cae",
-    "resourceVersion": "1794370908555995",
-    "generation": 7,
-    "creationTimestamp": "2026-11-10T16:56:49Z",
+    "uid": "b7bcca4d-065d-4923-b0ac-628fadf29cdb",
+    "resourceVersion": "1794580864783989",
+    "generation": 3,
+    "creationTimestamp": "2026-11-13T14:33:39Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "3443187871379456"
+      "grafana.app/deprecatedInternalID": "54719315832832"
     },
     "annotations": {
-      "grafana.app/createdBy": "user:cg3smynyko934b",
+      "grafana.app/createdBy": "access-policy:service",
+      "grafana.app/managedBy": "classic-file-provisioning",
+      "grafana.app/managerAllowsEdits": "true",
+      "grafana.app/managerId": "local-observability-lab",
       "grafana.app/saved-from-ui": "Grafana v13.3.0 (6f8ce3c693)",
-      "grafana.app/updatedBy": "user:cg3smynyko934b",
-      "grafana.app/updatedTimestamp": "2026-11-11T04:21:48Z"
+      "grafana.app/sourceChecksum": "f4ad0e106c22e154120f76ec1bbcc1de",
+      "grafana.app/sourcePath": "/etc/grafana/dashboards/logs-and-traces.json",
+      "grafana.app/sourceTimestamp": "1794370958000",
+      "grafana.app/updatedBy": "user:dg46oend1i22oc",
+      "grafana.app/updatedTimestamp": "2026-11-13T14:41:04Z"
     }
   },
   "spec": {
@@ -179,7 +185,10 @@
                         "name": "dg3vnda5rti4gc"
                       },
                       "spec": {
-                        "query": "91f92731b9a11f0544faf45bed599064"
+                        "limit": 30,
+                        "query": "91f92731b9a11f0544faf45bed599064",
+                        "queryType": "search",
+                        "service": "hello-world-app"
                       }
                     },
                     "refId": "A",
@@ -193,18 +202,43 @@
           },
           "vizConfig": {
             "kind": "VizConfig",
-            "group": "traces",
+            "group": "table",
             "version": "13.3.0",
             "spec": {
               "options": {
-                "spanFilters": {
-                  "adhocFilters": [],
-                  "criticalPathOnly": false,
-                  "matchesOnly": false
-                }
+                "cellHeight": "sm",
+                "showHeader": true,
+                "zebraStriping": false
               },
               "fieldConfig": {
-                "defaults": {},
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  }
+                },
                 "overrides": []
               }
             }

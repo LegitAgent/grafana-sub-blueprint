@@ -57,8 +57,9 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.5.6
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
+      # testing envs
+      - discovery.type=single-node # bypass master node election and bootstrap checks
+      - xpack.security.enabled=false # disable login stuff
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     networks:
