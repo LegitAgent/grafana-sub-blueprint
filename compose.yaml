@@ -15,7 +15,9 @@ services:
     image: localhost/otel-collector-setup-lab:1
     build:
       context: .
-      dockerfile: otel/collector.
+      dockerfile: otel/Containerfile
+    networks:
+      - observability
 
   prometheus:
     image: localhost/prometheus-setup-lab:1
@@ -28,6 +30,19 @@ services:
       - observability
     ports: 
       - 9090:9090
+  
+  jaeger:
+    image: localhost/jaeger-setup-lab:1
+    build:
+      context: .
+      dockerfile: jaeger/Containerfile
+    command: ["--config", "/etc/jaeger/config.yaml"]
+    volumes:
+      - jaeger-data:/var/lib/jaeger
+    networks:
+      - observability
+    ports:
+      - 16686:16686
 
 networks:
   observability:
@@ -37,3 +52,4 @@ volumes:
   prometheus-data:
   grafana-data:
     # external: true # same thing
+  jaeger-data:

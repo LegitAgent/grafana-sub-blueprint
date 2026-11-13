@@ -1,0 +1,3 @@
+FROM cr.jaegertracing.io/jaegertracing/jaeger:2.20.0
+
+COPY jaeger/config.yaml /etc/jaeger/config.yaml
