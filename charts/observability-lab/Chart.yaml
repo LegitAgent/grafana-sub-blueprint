@@ -1,0 +1,7 @@
+# for config and metadata settings for a helm chart
+
+apiVersion: v2
+name: observability-lab
+version: 0.1.0
+description: Local observability lab with Java, OpenTelemetry, Grafana, and telemetry backends.
+type: application

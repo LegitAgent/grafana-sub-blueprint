@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-world-app
+spec:
+  type: ClusterIP
+  selector:
+    app: java-app
+  ports:
+    - port: 8000 # where the service listens inside the cluster
+      targetPort: 8000 # port where the actual container listens

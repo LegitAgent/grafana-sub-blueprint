@@ -1,0 +1,15 @@
+# values to put in templates
+# prefaced with {{ .Values.whatever.... }}
+javaApp:
+  replicas: 2
+  image:
+    repository: localhost/java-app-lab
+    tag: "1"
+    pullPolicy: Never
+
+otelCollector:
+  replicas: 1
+  image:
+    repository: localhost/otel-collector-setup-lab
+    tag: "1"
+    pullPolicy: Never
