@@ -26,7 +26,10 @@ spec:
         # containerPort is just a label, 0.0.0.0:4318 actually opens the port in your app, 
         # and the Service gives other Pods a stable address to reach it.
         ports:
-        - containerPort: 4318
+        - name: otlp-http
+          containerPort: 4318
+        - name: metrics
+          containerPort: 8889
       volumes:
       - name: otel-collector-config
         configMap:

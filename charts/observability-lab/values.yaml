@@ -13,3 +13,10 @@ otelCollector:
     repository: localhost/otel-collector-setup-lab
     tag: "1"
     pullPolicy: Never
+
+prometheus:
+  replicas: 1
+  image:
+    repository: localhost/prometheus-setup-lab
+    tag: "1"
+    pullPolicy: Never

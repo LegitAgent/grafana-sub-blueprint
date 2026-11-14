@@ -1,0 +1,16 @@
+apiVersion: v1
+# PVC requests storage; PV represents the storage supplied.
+# The Pod mounts that storage through its PVC.
+# Prometheus reads/writes the database; the PV provides its storage.
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+spec:
+  storageClassName: standard # uses the local path provisioner
+  accessModes:
+  - ReadWriteOnce # one node at a time, will be able to read and write
+  # claim needs
+  resources:
+    # how much storage you want
+    requests:
+      storage: 2Gi # 2 gibibytes, 2.15 GB

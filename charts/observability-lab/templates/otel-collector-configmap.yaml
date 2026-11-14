@@ -38,7 +38,7 @@ data:
           exporters: [debug]
         metrics:
           receivers: [otlp]
-          exporters: [debug]
+          exporters: [debug, prometheus]
         logs:
           receivers: [otlp]
           exporters: [debug]

@@ -7,5 +7,9 @@ spec:
   selector:
     app: otel-collector
   ports:
-    - port: 4318 # clients connect to the service here
+    - name: otlp-http
+      port: 4318 # clients connect to the service here
       targetPort: 4318 # forwards to the collector listening here
+    - name: metrics
+      port: 8889
+      targetPort: 8889
