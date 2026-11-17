@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# no kubernetes, just local setup itself
 set -euo pipefail
 cd "$(dirname "$0")"
 
