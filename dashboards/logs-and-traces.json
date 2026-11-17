@@ -4,12 +4,12 @@
   "metadata": {
     "name": "addltbg",
     "namespace": "default",
-    "uid": "b7bcca4d-065d-4923-b0ac-628fadf29cdb",
-    "resourceVersion": "1794580864783989",
-    "generation": 3,
-    "creationTimestamp": "2026-11-13T14:33:39Z",
+    "uid": "7abe50fb-9c7d-41f2-a332-a330fadb6f9c",
+    "resourceVersion": "1794935188740009",
+    "generation": 4,
+    "creationTimestamp": "2026-11-17T13:52:39Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "54719315832832"
+      "grafana.app/deprecatedInternalID": "1493950726799360"
     },
     "annotations": {
       "grafana.app/createdBy": "access-policy:service",
@@ -20,8 +20,8 @@
       "grafana.app/sourceChecksum": "f4ad0e106c22e154120f76ec1bbcc1de",
       "grafana.app/sourcePath": "/etc/grafana/dashboards/logs-and-traces.json",
       "grafana.app/sourceTimestamp": "1794370958000",
-      "grafana.app/updatedBy": "user:dg46oend1i22oc",
-      "grafana.app/updatedTimestamp": "2026-11-13T14:41:04Z"
+      "grafana.app/updatedBy": "user:fg4kukuumlfk0a",
+      "grafana.app/updatedTimestamp": "2026-11-17T17:06:28Z"
     }
   },
   "spec": {
@@ -185,7 +185,7 @@
                         "name": "dg3vnda5rti4gc"
                       },
                       "spec": {
-                        "limit": 30,
+                        "limit": 20,
                         "query": "91f92731b9a11f0544faf45bed599064",
                         "queryType": "search",
                         "service": "hello-world-app"
@@ -367,7 +367,7 @@
     "tags": [],
     "timeSettings": {
       "timezone": "browser",
-      "from": "now-6h",
+      "from": "now-5m",
       "to": "now",
       "autoRefresh": "",
       "autoRefreshIntervals": [
