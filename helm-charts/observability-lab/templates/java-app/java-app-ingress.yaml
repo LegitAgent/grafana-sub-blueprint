@@ -12,6 +12,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: java-app
+            name: hello-world-app
             port:
               number: 8000

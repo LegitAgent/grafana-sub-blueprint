@@ -41,4 +41,4 @@ data:
           exporters: [debug, prometheus]
         logs:
           receivers: [otlp]
-          exporters: [debug]
+          exporters: [debug, elasticsearch]
