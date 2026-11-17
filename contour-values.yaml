@@ -1,0 +1,15 @@
+# ref: https://github.com/projectcontour/helm-charts/blob/main/charts/contour/values.yaml
+# - Ingress YAML: The rule: “send / to Grafana.”
+# - Contour: Reads that rule and configures the routing.
+# - Envoy: Receives the actual browser requests and forwards them to Grafana.
+
+envoy: # its a network proxy server
+  service:
+    type: ClusterIP # give Envoy a Service address inside the cluster
+    externalTrafficPolicy: "" # chart defaults to Local; unused here with ClusterIP
+  useHostPort:
+    http: true # enable access through the node's HTTP host port
+    https: false # don't expose an HTTPS host port
+  hostPorts:
+    http: 80 # forward port 80 on the node running Envoy to its HTTP listener
+    
