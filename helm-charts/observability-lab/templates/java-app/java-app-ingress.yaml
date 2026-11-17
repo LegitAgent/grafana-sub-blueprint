@@ -6,7 +6,7 @@ spec:
   ingressClassName: contour
   rules:
   - host: app.localhost
-  - http:
+    http:
       paths:
       - path: /
         pathType: Prefix

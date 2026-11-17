@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  labels:
+    app: jaeger
+spec:
+  replicas: {{ .Values.jaeger.replicas }}
+  selector:
+    matchLabels:
+      app: jaeger
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+      - name: jaeger
+        image: "{{ .Values.jaeger.image.repository }}:{{ .Values.jaeger.image.tag }}"
+        imagePullPolicy: {{ .Values.jaeger.image.pullPolicy }}
+        args: ["--config", "/etc/jaeger/jaeger.yaml"]
+        volumeMounts:
+        - name: jaeger-config
+          mountPath: /etc/jaeger
+          readOnly: true
+        - name: jaeger-data
+          mountPath: /var/lib/jaeger
+        ports:
+        - name: query
+          containerPort: 16686
+        - name: otlp-grpc
+          containerPort: 4317
+      volumes:
+      - name: jaeger-config
+        configMap:
+          name: jaeger-configmap
+      - name: jaeger-data
+        persistentVolumeClaim:
+          claimName: jaeger-data

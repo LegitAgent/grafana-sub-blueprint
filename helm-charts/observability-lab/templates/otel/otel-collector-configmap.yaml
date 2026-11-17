@@ -35,7 +35,7 @@ data:
         traces:
         # from collector (receiver) to Jaeger (exporter) example
           receivers: [otlp]
-          exporters: [debug]
+          exporters: [debug, otlp/jaeger]
         metrics:
           receivers: [otlp]
           exporters: [debug, prometheus]

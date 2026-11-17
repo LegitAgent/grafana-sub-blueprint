@@ -27,3 +27,10 @@ grafana:
     repository: localhost/grafana-setup-lab
     tag: "1"
     pullPolicy: Never
+
+jaeger:
+  replicas: 1
+  image:
+    repository: localhost/jaeger-setup-lab
+    tag: "1"
+    pullPolicy: Never
