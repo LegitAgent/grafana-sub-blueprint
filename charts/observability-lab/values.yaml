@@ -20,3 +20,10 @@ prometheus:
     repository: localhost/prometheus-setup-lab
     tag: "1"
     pullPolicy: Never
+
+grafana:
+  replicas: 1
+  image:
+    repository: localhost/grafana-setup-lab
+    tag: "1"
+    pullPolicy: Never

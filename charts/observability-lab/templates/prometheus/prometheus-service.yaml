@@ -8,5 +8,5 @@ spec:
     app: prometheus
   ports:
     - name: prometheus-front
-      port: 9090 # clients connect to the service here
-      targetPort: 9090 # forwards to the collector listening here
+      port: 9090
+      targetPort: 9090
