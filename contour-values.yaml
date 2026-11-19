@@ -12,4 +12,7 @@ envoy: # its a network proxy server
     https: false # don't expose an HTTPS host port
   hostPorts:
     http: 80 # forward port 80 on the node running Envoy to its HTTP listener
+
+contour:
+  ingressStatusAddress: "127.0.0.1" # local entry for the reported ingress status stuff in argo cd 
     
