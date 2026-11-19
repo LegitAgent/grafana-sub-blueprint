@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: java-app-ingress
 spec:
-  ingressClassName: contour
+  ingressClassName: contour # what ingress controller handles it
   rules:
   - host: app.localhost
     http:
