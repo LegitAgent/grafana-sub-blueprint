@@ -17,9 +17,14 @@ for required in git podman podman.exe podman-compose helm kind.exe kubectl.exe o
     fi
 done
 
+machine_cmd() (
+    cd /mnt/c
+    podman.exe machine "$@"
+)
+
 # get all podman instances by name
 mapfile -t machines < <(
-  podman.exe machine list --format '{{.Name}}' | tr -d '\r'
+  machine_cmd list --format '{{.Name}}' | tr -d '\r'
 )
 
 # make select option
@@ -55,18 +60,22 @@ if [[ "$machine" == "Create new" ]]; then
     fi
     
     [[ -n "$new_machine" ]] || { echo "Machine name is required" >&2; exit 1; }
-    podman.exe machine init --provider wsl --rootful --cpus "$cpus" --memory "$memory_mib" --disk-size "$disk_gib" --now "$new_machine"
+    machine_cmd init --provider wsl --rootful \
+        --cpus "$cpus" \
+        --memory "$memory_mib" \
+        --disk-size "$disk_gib" \
+        --now "$new_machine"
     
     machine=$new_machine
 else
     # else, check if running
-    state=$(podman.exe machine inspect --format '{{.State}}' "$machine" | tr -d '\r')
+    state=$(machine_cmd inspect --format '{{.State}}' "$machine" | tr -d '\r')
     if [[ "$state" != "running" ]]; then
-        podman.exe machine start "$machine"
+        machine_cmd start "$machine"
     fi
 fi
 
-rootful=$(podman.exe machine inspect --format '{{.Rootful}}' "$machine" | tr -d '\r')
+rootful=$(machine_cmd inspect --format '{{.Rootful}}' "$machine" | tr -d '\r')
 # verify if podman is using a rootful machine, if not, gtfo
 if [[ "$rootful" != true ]]; then
     echo "This Kubernetes setup requires a rootful Podman machine." >&2
