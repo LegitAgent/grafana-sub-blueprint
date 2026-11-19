@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-lab
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/LegitAgent/grafana-sub-blueprint.git
+    targetRevision: HEAD
+    path: helm-charts/observability-lab
+    helm:
+      releaseName: observability-lab
+  destination:
+    server: https://kubernetes.default.svc # target kubernetes API server
+    namespace: default
