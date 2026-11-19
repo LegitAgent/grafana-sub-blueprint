@@ -9,7 +9,7 @@ envoy: # its a network proxy server
     externalTrafficPolicy: "" # chart defaults to Local; unused here with ClusterIP
   useHostPort:
     http: true # enable access through the node's HTTP host port
-    https: false # don't expose an HTTPS host port
+    https: true # enable too
   hostPorts:
     http: 80 # forward port 80 on the node running Envoy to its HTTP listener
 

@@ -10,7 +10,7 @@ set -euo pipefail # exit on command errors or unset variables, for failures in p
 cd "$(dirname "$0")" # standardize root
 
 # check required cli tools
-for required in git podman podman.exe podman-compose helm kind.exe kubectl.exe; do
+for required in git podman podman.exe podman-compose helm kind.exe kubectl.exe openssl base64; do
     if ! command -v "$required" >/dev/null 2>&1; then
         printf 'Missing required command: %s\n' "$required" >&2
         exit 1
@@ -67,7 +67,7 @@ else
 fi
 
 rootful=$(podman.exe machine inspect --format '{{.Rootful}}' "$machine" | tr -d '\r')
-# env files for podman wsl
+# verify if podman is using a rootful machine, if not, gtfo
 if [[ "$rootful" != true ]]; then
     echo "This Kubernetes setup requires a rootful Podman machine." >&2
     exit 1
@@ -146,7 +146,7 @@ kube_cmd() {
 # check if its rdy to go
 kube_cmd wait --for=condition=Ready nodes --all --timeout=120s
 
-# push all images to the cluster
+# load all custom images into the kind node
 for image in \
     localhost/java-app-lab:1 \
     localhost/grafana-setup-lab:1 \
@@ -194,3 +194,61 @@ kube_cmd --namespace argocd rollout status \
 # auto fill argocd application
 kube_cmd apply \
     --filename "$(wslpath -w "$PWD/argocd/observability-lab.yaml")"
+
+# wait for live resource from git matches
+kube_cmd --namespace argocd wait \
+    application/observability-lab \
+    --for=jsonpath='{.status.sync.status}'=Synced \
+    --timeout=600s
+
+# wait for health check
+kube_cmd --namespace argocd wait \
+    application/observability-lab \
+    --for=jsonpath='{.status.health.status}'=Healthy \
+    --timeout=600s
+
+# make a https cert for ingress
+# make cert dir for where TLS certs will be stored
+cert_dir="$HOME/.local/share/observability-lab/tls"
+mkdir -p "$cert_dir"
+chmod 700 "$cert_dir"
+
+if [[ ! -s "$cert_dir/tls.key" || ! -s "$cert_dir/tls.crt" ]]; then
+    (
+        umask 077
+
+        openssl req -x509 -newkey rsa:2048 -nodes \
+            -days 365 \
+            -keyout "$cert_dir/tls.key" \
+            -out "$cert_dir/tls.crt" \
+            -subj "/CN=argocd.localhost" \
+            -addext "subjectAltName=DNS:argocd.localhost"
+    )
+fi
+
+# update/create kubernetes tls secret for argocd-local-tls in argocd namespace
+kube_cmd --namespace argocd create secret tls argocd-local-tls \
+    --cert="$(wslpath -w "$cert_dir/tls.crt")" \
+    --key="$(wslpath -w "$cert_dir/tls.key")" \
+    --dry-run=client -o yaml |
+    kube_cmd apply -f -
+
+# config for backend https server, contour has to use TLS when forwarding to port 443 argocd-server
+kube_cmd --namespace argocd annotate service argocd-server \
+    'projectcontour.io/upstream-protocol.tls=443' --overwrite
+
+# apply ingress file
+kube_cmd apply \
+    --filename "$(wslpath -w "$PWD/argocd/ingress.yaml")"
+
+# YOLO health check for argocd lmao
+
+printf '\nObservability lab is synced and healthy.\n'
+printf 'Java app: http://app.localhost:9091/hello-world\n'
+printf 'Grafana:  http://grafana.localhost:9091\n'
+printf 'Argo CD:  https://argocd.localhost:9443\n'
+printf 'Argo CD username: admin\n'
+printf 'Retrieve the initial password by running:\n'
+printf 'kubectl.exe --kubeconfig "%s" --context "kind-%s" -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode\n' \
+    "$(wslpath -w "$KUBECONFIG")" \
+    "$cluster_name"

@@ -12,5 +12,11 @@ spec:
     helm:
       releaseName: observability-lab
   destination:
-    server: https://kubernetes.default.svc # target kubernetes API server
+    server: https://kubernetes.default.svc # target kubernetes API server, meaning the same cluster where Argo CD is running
     namespace: default
+  # automate syncing
+  syncPolicy:
+    automated:
+      enabled: true
+      prune: false
+      selfHeal: true
