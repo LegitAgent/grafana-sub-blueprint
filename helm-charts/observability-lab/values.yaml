@@ -1,7 +1,7 @@
 # values to put in templates
 # prefaced with {{ .Values.whatever.... }}
 javaApp:
-  replicas: 2
+  replicas: 3
   image:
     repository: localhost/java-app-lab
     tag: "1"
