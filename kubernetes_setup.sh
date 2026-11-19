@@ -10,7 +10,7 @@ set -euo pipefail # exit on command errors or unset variables, for failures in p
 cd "$(dirname "$0")" # standardize root
 
 # check required cli tools
-for required in git podman podman.exe podman-compose helm kind.exe kubectl.exe openssl base64; do
+for required in git podman podman.exe podman-compose helm kind.exe kubectl.exe openssl base64 curl.exe; do
     if ! command -v "$required" >/dev/null 2>&1; then
         printf 'Missing required command: %s\n' "$required" >&2
         exit 1
@@ -156,15 +156,28 @@ kube_cmd() {
 kube_cmd wait --for=condition=Ready nodes --all --timeout=120s
 
 # load all custom images into the kind node
-for image in \
-    localhost/java-app-lab:1 \
-    localhost/grafana-setup-lab:1 \
-    localhost/otel-collector-setup-lab:1 \
-    localhost/prometheus-setup-lab:1 \
+images=(
+    localhost/java-app-lab:1
+    localhost/grafana-setup-lab:1
+    localhost/otel-collector-setup-lab:1
+    localhost/prometheus-setup-lab:1
     localhost/jaeger-setup-lab:1
-do
-    kind_cmd load docker-image "$image" --name "$cluster_name"
-done
+)
+
+# make an archive for imgs
+archive=$(mktemp --suffix=.tar)
+trap 'rm -f -- "$archive"' EXIT
+
+# send images to archive
+podman save \
+    --format docker-archive \
+    --output "$archive" \
+    "${images[@]}"
+
+# load them into kind, since docker-image expects images in Docker
+kind_cmd load image-archive \
+    "$(wslpath -w "$archive")" \
+    --name "$cluster_name"
 
 # INGRESS STUFF
 # add contour stuff to cluster
@@ -250,7 +263,59 @@ kube_cmd --namespace argocd annotate service argocd-server \
 kube_cmd apply \
     --filename "$(wslpath -w "$PWD/argocd/ingress.yaml")"
 
-# YOLO health check for argocd lmao
+# check windows-facing ingress routes, not only Kubernetes resource health.
+check_ingress() {
+    local label="$1" url="$2" address="$3" expected="$4"
+    shift 4
+    local response http_code body
+
+    printf 'Checking %s ingress...\n' "$label"
+    if response=$(curl.exe \
+        --noproxy "*" \
+        --fail --silent --show-error \
+        --resolve "$address" \
+        --connect-timeout 5 \
+        --max-time 10 \
+        --retry 12 \
+        --retry-delay 2 \
+        --retry-all-errors \
+        --retry-max-time 120 \
+        --write-out '\n%{http_code}' \
+        "$@" "$url" 2>&1); then
+        response=${response//$'\r'/}
+        http_code=${response##*$'\n'}
+        body=${response%$'\n'*}
+        if [[ "$http_code" == 200 && "$body" =~ $expected ]]; then
+            printf '%s ingress is responding correctly.\n' "$label"
+            return 0
+        fi
+        printf '%s returned HTTP %s or an unexpected response.\n' "$label" "$http_code" >&2
+    else
+        printf '%s ingress request failed:\n%s\n' "$label" "${response:0:1000}" >&2
+    fi
+
+    printf 'Ingress verification failed for %s. Setup is not confirmed complete.\n' "$url" >&2
+    printf 'Check Pod/Envoy readiness, Ingress routes, Kind port mappings, and Podman host forwarding.\n' >&2
+    printf 'A healthy Argo CD Application does not prove the Windows-facing ports work.\n' >&2
+    return 1
+}
+
+check_ingress 'Java app' \
+    'http://app.localhost:9091/hello-world' \
+    'app.localhost:9091:127.0.0.1' \
+    '^Hello World!$'
+
+check_ingress 'Grafana' \
+    'http://grafana.localhost:9091/api/health' \
+    'grafana.localhost:9091:127.0.0.1' \
+    '"database"[[:space:]]*:[[:space:]]*"ok"'
+
+# Trust this lab's certificate for this request; Windows trust settings are unchanged.
+check_ingress 'Argo CD' \
+    'https://argocd.localhost:9443/' \
+    'argocd.localhost:9443:127.0.0.1' \
+    'Argo CD' \
+    --cacert "$(wslpath -w "$cert_dir/tls.crt")"
 
 printf '\nObservability lab is synced and healthy.\n'
 printf 'Java app: http://app.localhost:9091/hello-world\n'
@@ -258,6 +323,6 @@ printf 'Grafana:  http://grafana.localhost:9091\n'
 printf 'Argo CD:  https://argocd.localhost:9443\n'
 printf 'Argo CD username: admin\n'
 printf 'Retrieve the initial password by running:\n'
-printf 'kubectl.exe --kubeconfig "%s" --context "kind-%s" -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode\n' \
+printf "kubectl.exe --kubeconfig '%s' --context 'kind-%s' -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 --decode\n" \
     "$(wslpath -w "$KUBECONFIG")" \
     "$cluster_name"
